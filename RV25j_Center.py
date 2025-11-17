@@ -284,8 +284,8 @@ class ImageBrowserApp:
 
         # Ratio 10 : 70 : 20  →  1 : 8 : 1 (approx)
         content.grid_columnconfigure(0, weight=1)   # left
-        content.grid_columnconfigure(1, weight=8)   # middle
-        content.grid_columnconfigure(2, weight=1)   # right
+        content.grid_columnconfigure(1, weight=7)   # middle
+        content.grid_columnconfigure(2, weight=2)   # right
         content.grid_rowconfigure(0, weight=1)
 
         # ----- Left frame (~10%) -----
