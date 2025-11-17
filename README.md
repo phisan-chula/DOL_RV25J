@@ -26,5 +26,6 @@ After – Corrected Coordinates and Replotted Polygon
 Following manual review and coordinate correction inside the RV25J Application Center, the parcel was reprocessed and replotted. The corrected coordinates produce a properly closed polygon with an accurate spatial shape that matches the physical land parcel boundary.
 ![App RV25J P12 Edited](https://github.com/phisan-chula/DOL_RV25J/blob/main/App_RV25J_P12_Edited.png).
 
+With module 'RV25j_Cadastre' , all markers and boundaries are conflated to a cadastre map.  
 
 <img width="2450" height="1670" alt="image" src="https://github.com/user-attachments/assets/b3d225f4-2ff4-49b5-8b48-c8a3603013d4" />
