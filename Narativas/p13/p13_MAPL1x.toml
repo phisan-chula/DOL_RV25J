@@ -1,0 +1,14 @@
+[META]
+DOL_Office = "Narathivas"
+
+[Deed]
+Survey_Type = "MAP-L1"
+EPSG = 24047
+unit = "meter"
+polygon_closed = true
+marker = [
+  [1, "A", "s33", 711574.042, 809972.324],
+  [2, "B", "s32", 711562.689, 809987.191],
+  [3, "C", "s31", 711624.835, 810051.076],
+  [4, "D", "s80", 711644.466, 810031.568],
+]
