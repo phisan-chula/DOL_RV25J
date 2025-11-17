@@ -15,7 +15,8 @@
 
  For each document, the user can:
 
-   1. View the DOL document image (middle canvas, 1:1 pixels with scrollbars).
+   1. View the DOL document image (middle canvas, scaled by view_scale with
+      scrollbars).
 
    2. Draw a rectangle (mouse drag UL → LR) marking the parcel/table area.
       - New rectangles are drawn in red.
@@ -35,7 +36,8 @@
 
    5. Right panel (~20% width) shows, for the current *_rv25j.jpg:
       - Top   : *_table.jpg preview (if exists)
-      - Middle: *_MAPL1.toml text content (if exists), with auto-hide scrollbar
+      - Middle: *_MAPL1.toml text content (or *_MAPL1x.toml), with auto-hide
+                scrollbar
       - Bottom: *_plot.png polygon preview (if exists)
 
  Layout ratio (bottom content area):
@@ -43,9 +45,24 @@
       middle_frame ≈ 70%  (main image + rectangle)
       right_frame  ≈ 20%  (table/TOML/plot)
 
+ CONFIGURATION (CONFIG.toml)
+ ---------------------------
+ A TOML file named CONFIG.toml in the current working directory can set
+ the initial middle-frame zoom:
+
+     [RV25J_CENTER]
+     view_scale = 0.25   # allowed: 0.25, 0.5, 1.0
+
+ The loader checks that view_scale is one of {0.25, 0.5, 1.0}. Otherwise,
+ the default 1.0 is used.
+
+ At startup the app prints:
+
+     [CONFIG] setting view_scale = xxx
+
 -------------------------------------------------------------------------------
  Author : Phisan / ChatGPT
- Version: 16 Nov 2025
+ Version: 17 Nov 2025  (CONFIG.toml + zoom buttons)
 ===============================================================================
 """
 
@@ -55,6 +72,12 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 import pandas as pd
+
+# Try stdlib TOML reader (Python 3.11+)
+try:
+    import tomllib  # Python 3.11+
+except ImportError:
+    tomllib = None
 
 RV_SUFFIX = "_rv25j.jpg"   # strict suffix we support
 
@@ -106,7 +129,7 @@ class ImageBrowserApp:
         self.current_idx = None
 
         # Keep references to PhotoImage
-        self.photo_main = None       # middle canvas (full deed image)
+        self.photo_main = None       # middle canvas (full deed image, scaled)
         self.photo_table = None      # right top canvas (*_table.jpg)
         self.photo_plot = None       # right bottom canvas (*_plot.png)
 
@@ -114,18 +137,62 @@ class ImageBrowserApp:
         self.text_toml = None
 
         # Geometry / rect state for main image
-        self.main_img_size = None      # (width, height) in image pixels
-        self.main_scale = None         # scale factor image→canvas
+        self.main_img_size = None      # (width, height) in original image pixels
+        self.main_scale = None         # scale factor original_image → canvas
         self.main_offset = None        # (offset_x, offset_y) on canvas
         self.rect_canvas_id = None     # current rectangle item on canvas
-        self.current_rect_img = None   # (ulx, uly, lrx, lry) in image coords
+        self.current_rect_img = None   # (ulx, uly, lrx, lry) in original image coords
 
         # For mouse dragging
         self.dragging = False
         self.rect_start_canvas = None  # (x, y) canvas coords
         self.rect_start_img = None     # (x, y) image coords
 
+        # View scale for main JPEG (1.0, 0.5, 0.25 etc.)
+        self.view_scale = self.load_view_scale_from_config()
+
         self.create_widgets()
+
+    # ------------------------------------------------------------------
+    # CONFIG.toml loader
+    # ------------------------------------------------------------------
+    def load_view_scale_from_config(self):
+        """
+        Read CONFIG.toml (TOML) if available:
+
+        [RV25J_CENTER]
+        view_scale = 0.25   # allowed: 0.25, 0.5, 1.0
+
+        Returns float, default = 1.0 if not found / error.
+        Always prints:
+            [CONFIG] setting view_scale = xxx
+        """
+        default = 1.0
+        allowed = {0.25, 0.5, 1.0}
+        cfg_path = "CONFIG.toml"
+        value = default
+
+        if tomllib is not None and os.path.isfile(cfg_path):
+            try:
+                with open(cfg_path, "rb") as f:
+                    data = tomllib.load(f)
+                section = data.get("RV25J_CENTER", {})
+                raw = section.get("view_scale", default)
+                raw = float(raw)
+                if raw in allowed:
+                    value = raw
+                else:
+                    print(f"[CONFIG] invalid view_scale = {raw}, using default {default}")
+                    value = default
+            except Exception as e:
+                print(f"[CONFIG] error reading {cfg_path}: {e}")
+                value = default
+        else:
+            # No tomllib or no CONFIG.toml
+            value = default
+
+        print(f"[CONFIG] setting view_scale = {value}")
+        return value
 
     # ------------------------------------------------------------------
     # UI creation
@@ -137,6 +204,32 @@ class ImageBrowserApp:
 
         btn_open = tk.Button(ribbon, text="Open folder...", command=self.open_folder)
         btn_open.pack(side=tk.LEFT, padx=5)
+
+        # ---- 3 zoom buttons [1:1] [1:2] [1:4] (green) ----
+        btn_zoom_1 = tk.Button(
+            ribbon,
+            text="[1:1]",
+            bg="lightgreen",
+            command=lambda: self.set_view_scale(1.0),
+        )
+        btn_zoom_1.pack(side=tk.LEFT, padx=2)
+
+        btn_zoom_2 = tk.Button(
+            ribbon,
+            text="[1:2]",
+            bg="lightgreen",
+            command=lambda: self.set_view_scale(0.5),
+        )
+        btn_zoom_2.pack(side=tk.LEFT, padx=2)
+
+        btn_zoom_4 = tk.Button(
+            ribbon,
+            text="[1:4]",
+            bg="lightgreen",
+            command=lambda: self.set_view_scale(0.25),
+        )
+        btn_zoom_4.pack(side=tk.LEFT, padx=2)
+        # --------------------------------------------------
 
         btn_prev = tk.Button(ribbon, text="Previous", command=self.show_previous)
         btn_prev.pack(side=tk.LEFT, padx=5)
@@ -189,7 +282,7 @@ class ImageBrowserApp:
         content = tk.Frame(self.master)
         content.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        # Ratio 10 : 70 : 20  →  1 : 7 : 2
+        # Ratio 10 : 70 : 20  →  1 : 8 : 1 (approx)
         content.grid_columnconfigure(0, weight=1)   # left
         content.grid_columnconfigure(1, weight=8)   # middle
         content.grid_columnconfigure(2, weight=1)   # right
@@ -201,7 +294,7 @@ class ImageBrowserApp:
 
         tk.Label(left_frame, text="*_rv25j.jpg files").pack(anchor="w")
 
-        self.listbox = tk.Listbox(left_frame, width=20,  font=("Arial", 14) )
+        self.listbox = tk.Listbox(left_frame, width=20, font=("Arial", 14))
         self.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         scrollbar = tk.Scrollbar(left_frame, orient=tk.VERTICAL, command=self.listbox.yview)
@@ -250,16 +343,13 @@ class ImageBrowserApp:
         self.canvas_table = tk.Canvas(self.right_frame, width=150, height=300, bg="gray")
         self.canvas_table.pack(fill=tk.BOTH, expand=True)
 
-        # Middle: *_MAPL1.toml with auto-hide scrollbar
-        #tk.Label(self.right_frame, text="*_MAPL1.toml").pack(anchor="w")
         # Middle: *_MAPL1(.x).toml with auto-hide scrollbar
         self.label_toml = tk.Label(self.right_frame, text="TOML file here")
         self.label_toml.pack(anchor="w")
         toml_frame = tk.Frame(self.right_frame)
         toml_frame.pack(fill=tk.BOTH, expand=False)
 
-        self.text_toml = tk.Text(toml_frame, wrap="none", font=("Courier", 14), height=20, width=20) 
-        # MODIFIED HEIGHT=4
+        self.text_toml = tk.Text(toml_frame, wrap="none", font=("Courier", 14), height=20, width=20)
         self.text_toml.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         toml_scroll = AutoHideScrollbar(toml_frame, orient=tk.VERTICAL, command=self.text_toml.yview)
@@ -270,6 +360,34 @@ class ImageBrowserApp:
         tk.Label(self.right_frame, text="*_plot.png (polygon preview)").pack(anchor="w")
         self.canvas_plot = tk.Canvas(self.right_frame, width=150, height=300, bg="gray")
         self.canvas_plot.pack(fill=tk.BOTH, expand=True)
+
+    # ------------------------------------------------------------------
+    # Zoom control
+    # ------------------------------------------------------------------
+    def set_view_scale(self, scale: float):
+        """Set view_scale in memory and refresh the main image."""
+        self.view_scale = float(scale)
+        self.refresh_main_image()
+
+    def refresh_main_image(self):
+        """
+        Redisplay the current main JPEG using the current view_scale,
+        keeping the current rectangle (if any).
+        """
+        if self.df is None or self.current_idx is None:
+            return
+        row = self.df.iloc[self.current_idx]
+        rv_path = row["rv_path"]
+
+        # Redisplay main image with new scale
+        self.display_image_on_canvas(rv_path, self.canvas_main, is_main=True)
+
+        # Redraw existing rectangle in image coords (if any)
+        if self.current_rect_img is not None:
+            self.draw_rect_from_image_coords(self.current_rect_img, color="red")
+        else:
+            # If no current rect, try load existing *_rect.json
+            self.load_existing_rect(rv_path)
 
     # ------------------------------------------------------------------
     # Folder + DataFrame loading
@@ -359,7 +477,7 @@ class ImageBrowserApp:
     # Image display helpers
     # ------------------------------------------------------------------
     def update_images(self):
-        # Reset rectangle state
+        # Reset rectangle state for new file
         self.main_img_size = None
         self.main_scale = None
         self.main_offset = None
@@ -381,7 +499,7 @@ class ImageBrowserApp:
         toml_x_path = os.path.join(folder, f"{prefix}_MAPL1x.toml")  # side-file
         plot_path = os.path.join(folder, f"{prefix}_plot.png")
 
-        # Middle: main image
+        # Middle: main image (scaled by view_scale)
         self.display_image_on_canvas(rv_path, self.canvas_main, is_main=True)
         self.load_existing_rect(rv_path)
 
@@ -397,18 +515,6 @@ class ImageBrowserApp:
                 fill="white",
             )
 
-        # Right middle: *_MAPL1.toml text
-        #self.text_toml.config(state="normal")
-        #self.text_toml.delete("1.0", tk.END)
-        #if os.path.isfile(toml_path):
-        #    try:
-        #        txt = open(toml_path, "r", encoding="utf-8").read()
-        #        self.text_toml.insert("1.0", txt)
-        #    except Exception as e:
-        #        self.text_toml.insert("1.0", f"Error reading {toml_path}:\n{e}")
-        #else:
-        #    self.text_toml.insert("1.0", "No *_MAPL1.toml")
-        #self.text_toml.config(state="disabled")
         # Right middle: *_MAPL1.toml / *_MAPL1x.toml text
         self.text_toml.config(state="normal", bg="white")  # reset default
         self.text_toml.delete("1.0", tk.END)
@@ -440,7 +546,7 @@ class ImageBrowserApp:
             self.text_toml.insert("1.0", "No *_MAPL1.toml / *_MAPL1x.toml")
 
         self.text_toml.config(state="disabled")
-        ##################################################################
+
         # Right bottom: *_plot.png
         if os.path.isfile(plot_path):
             self.display_plot_image(plot_path)
@@ -463,13 +569,23 @@ class ImageBrowserApp:
         orig_w, orig_h = img.size
 
         if is_main:
-            self.photo_main = ImageTk.PhotoImage(img)
+            # Apply view_scale
+            scale = self.view_scale if self.view_scale else 1.0
+            if scale != 1.0:
+                new_w = max(1, int(orig_w * scale))
+                new_h = max(1, int(orig_h * scale))
+                img_disp = img.resize((new_w, new_h), Image.LANCZOS)
+            else:
+                img_disp = img
+
+            self.photo_main = ImageTk.PhotoImage(img_disp)
             canvas.delete("all")
             canvas.create_image(0, 0, image=self.photo_main, anchor="nw")
-            canvas.config(scrollregion=(0, 0, orig_w, orig_h))
+            canvas.config(scrollregion=(0, 0, img_disp.width, img_disp.height))
 
+            # For coordinate transforms we keep original size and scale factor
             self.main_img_size = (orig_w, orig_h)
-            self.main_scale = 1.0
+            self.main_scale = scale
             self.main_offset = (0.0, 0.0)
 
     def display_table_image(self, path):
