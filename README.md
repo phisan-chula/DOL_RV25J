@@ -3,15 +3,15 @@
 
 This repository provides tools and workflow elements for Thai DOL (Department of Lands) RV25J scanned deeds, including:
 
-Automated OCR extraction pipeline (PP-Structure / PaddleOCR / custom parsing)
+- Automated OCR extraction pipeline (PP-Structure / PaddleOCR / custom parsing)
 
-Coordinate cleaning & closure validation
+- Coordinate cleaning & closure validation
 
-*_MAPL1.toml polygon generation
+- *_MAPL1.toml polygon generation
 
-GIS-ready plot visualization (*_plot.png)
+- GIS-ready plot visualization (*_plot.png) and later harvesting parcels for cadastre map generation
 
-Support for UI inspector and interactive viewing
+- Support for UI inspector and interactive viewing
 
 -----------------------------------------------
 
