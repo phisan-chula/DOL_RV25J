@@ -340,7 +340,7 @@ class ImageBrowserApp:
 
         # Top: *_table.jpg preview
         tk.Label(self.right_frame, text="*_table.jpg (clipped table preview)").pack(anchor="w")
-        self.canvas_table = tk.Canvas(self.right_frame, width=150, height=300, bg="gray")
+        self.canvas_table = tk.Canvas(self.right_frame, width=150, height=200, bg="gray")
         self.canvas_table.pack(fill=tk.BOTH, expand=True)
 
         # Middle: *_MAPL1(.x).toml with auto-hide scrollbar
@@ -349,7 +349,7 @@ class ImageBrowserApp:
         toml_frame = tk.Frame(self.right_frame)
         toml_frame.pack(fill=tk.BOTH, expand=False)
 
-        self.text_toml = tk.Text(toml_frame, wrap="none", font=("Courier", 14), height=20, width=20)
+        self.text_toml = tk.Text(toml_frame, wrap="none", font=("Courier", 14), height=10, width=20)
         self.text_toml.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         toml_scroll = AutoHideScrollbar(toml_frame, orient=tk.VERTICAL, command=self.text_toml.yview)
@@ -358,7 +358,7 @@ class ImageBrowserApp:
 
         # Bottom: *_plot.png
         tk.Label(self.right_frame, text="*_plot.png (polygon preview)").pack(anchor="w")
-        self.canvas_plot = tk.Canvas(self.right_frame, width=150, height=300, bg="gray")
+        self.canvas_plot = tk.Canvas(self.right_frame, width=150, height=200, bg="gray")
         self.canvas_plot.pack(fill=tk.BOTH, expand=True)
 
     # ------------------------------------------------------------------
