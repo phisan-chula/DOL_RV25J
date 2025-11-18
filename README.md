@@ -27,5 +27,4 @@ Following manual review and coordinate correction inside the RV25J Application C
 ![App RV25J P12 Edited](https://github.com/phisan-chula/DOL_RV25J/blob/main/App_RV25J_P12_Edited.png).
 
 With module 'RV25j_Cadastre' , all markers and boundaries are conflated to a cadastre map.  
-
-<img width="2450" height="1670" alt="image" src="https://github.com/user-attachments/assets/b3d225f4-2ff4-49b5-8b48-c8a3603013d4" />
+![Cadastre_All](https://raw.githubusercontent.com/phisan-chula/DOL_RV25J/main/Cadastre_All.png)
