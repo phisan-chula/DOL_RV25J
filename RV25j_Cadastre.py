@@ -481,7 +481,7 @@ class GPKGWriter:
         self.folder = folder
         self.crs_factory = crs_factory
 
-    def write(
+    def write_ID75_W84(
         self,
         df_I75: pd.DataFrame,
         df_W84: pd.DataFrame,
@@ -504,12 +504,12 @@ class GPKGWriter:
         for i, row in df.groupby('File'):
             print(f'Writing group {i} ...')
             # ---- marker points ----
-            gdf = gpd.GeoDataFrame(
+            gdf_marker = gpd.GeoDataFrame(
                 row.copy(),
                 geometry=[Point(xy) for xy in zip(row["EASTING"], row["NORTHING"])],
                 crs=crs,
             )
-            gdf.to_file(gpkg_path, layer=f"{i}:marker", driver="GPKG")
+            gdf_marker.to_file(gpkg_path, layer=f"marker:{i}", driver="GPKG")
             # ---- polygon boundary ----
             coords = list(zip(row["EASTING"], row["NORTHING"]))
             # ensure closed ring
@@ -521,8 +521,8 @@ class GPKGWriter:
                 {"File": [i]},
                 geometry=[boundary_geom],
                 crs=crs
-            )
-            gdf_boundary.to_file(gpkg_path, layer=f"{i}:polygon", driver="GPKG")
+                )
+            gdf_boundary.to_file(gpkg_path, layer=f"parcel:{i}", driver="GPKG")
         print(f"[OK] Wrote GPKG → {gpkg_path}")
 
 
@@ -588,7 +588,7 @@ class MarkerProcessor:
         )
 
         writer = GPKGWriter(self.folder, self.crs_factory)
-        writer.write(df_ID75, df_W84, self.gpkg_prefix)
+        writer.write_ID75_W84(df_ID75, df_W84, self.gpkg_prefix)
 
 
 # =========================================
